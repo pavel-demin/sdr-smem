@@ -10,9 +10,10 @@ uses
 
 type
   TState = record
-    port: THandle;
+    hndl: THandle;
     smem: TSharedMemory;
     sock: array [0..1] of TInetSocket;
+    port: array [0..1] of Int32;
     chan: array [0..1] of Int32;
     freq: array [0..3] of Int32;
   end;
@@ -31,8 +32,9 @@ var
   ct: TCommTimeouts;
   i, rate, status: Int32;
   size: UInt32;
-  buffer: String;
+  call, buffer: String;
   freq: array [0..3] of Int32;
+  drain: array [0..1023] of Byte;
 
 function BinarySearch(constref a: array of Int32; v: Int32): Int32;
 var
@@ -79,8 +81,8 @@ begin
   buffer := '\\.\COM' + ParamStr(1);
 
   try
-    s.port := CreateFile(PChar(buffer), GENERIC_READ or GENERIC_WRITE, 0, nil, OPEN_EXISTING, 0, 0);
-    WinCheck(s.port <> INVALID_HANDLE_VALUE);
+    s.hndl := CreateFile(PChar(buffer), GENERIC_READ or GENERIC_WRITE, 0, nil, OPEN_EXISTING, 0, 0);
+    WinCheck(s.hndl <> INVALID_HANDLE_VALUE);
   except
     WriteLn('Error: unable to open serial port');
     Exit;
@@ -94,37 +96,48 @@ begin
     Exit;
   end;
 
-  GetCommState(s.port, cs);
+  call := ParamStr(4);
+
+  try
+    s.port[0] := StrToInt(ParamStr(5));
+    s.port[1] := StrToInt(ParamStr(6));
+  except
+    WriteLn('Error: unable to convert ports');
+    Exit;
+  end;
+
+  GetCommState(s.hndl, cs);
   cs.BaudRate := CBR_115200;
   cs.ByteSize := 8;
   cs.Parity := NOPARITY;
   cs.StopBits := ONESTOPBIT;
-  SetCommState(s.port, cs);
+  SetCommState(s.hndl, cs);
 
-  GetCommTimeouts(s.port, ct);
+  GetCommTimeouts(s.hndl, ct);
   ct.ReadTotalTimeoutConstant := 100;
-  SetCommTimeouts(s.port, ct);
+  SetCommTimeouts(s.hndl, ct);
 
   s.smem.Open(0);
 
   repeat
-    PurgeComm(s.port, PURGE_RXABORT or PURGE_RXCLEAR or PURGE_TXABORT or PURGE_TXCLEAR);
+    Sleep(100);
+
+    PurgeComm(s.hndl, PURGE_RXABORT or PURGE_RXCLEAR or PURGE_TXABORT or PURGE_TXCLEAR);
 
     buffer := 'fa;fb;';
-    WriteFile(s.port, buffer[1], 6, size, nil);
+    WriteFile(s.hndl, buffer[1], 6, size, nil);
     if size <> 6 then
     begin
       WriteLn('Error: unable to send command');
       Exit;
     end;
 
-    FlushFileBuffers(s.port);
+    FlushFileBuffers(s.hndl);
 
     SetLength(buffer, 28);
-    ReadFile(s.port, buffer[1], 28, size, nil);
+    ReadFile(s.hndl, buffer[1], 28, size, nil);
     if size <> 28 then
     begin
-      Sleep(100);
       Continue;
     end;
 
@@ -132,8 +145,7 @@ begin
       freq[0] := StrToInt(buffer.SubString(2, 11));
       freq[1] := StrToInt(buffer.SubString(16, 11));
     except
-      WriteLn('Error: unable to convert frequencies');
-      Exit;
+      Continue;
     end;
 
     rate := s.smem.ctrl^.rate;
@@ -143,14 +155,13 @@ begin
       freq[i + 2] := FindNearest(bands[rate], freq[i]);
       if (s.freq[i] = freq[i]) and (s.freq[i + 2] = freq[i + 2]) then Continue;
 
-      s.freq[i + 2] := freq[i + 2];
       s.smem.ctrl^.freq[s.chan[i]] := freq[i + 2];
 
       if s.sock[i] = nil then
       begin
-        buffer := ParamStr(4) + #10;
+        buffer := call + #10;
         try
-          s.sock[i] := TInetSocket.Create('127.0.0.1', StrToInt(ParamStr(i + 5)), 50);
+          s.sock[i] := TInetSocket.Create('127.0.0.1', s.port[i], 50);
         except
           FreeAndNil(s.sock[i]);
           Continue;
@@ -171,7 +182,8 @@ begin
         Continue;
       end;
 
-      s.freq[i] := freq[i];
+      s.freq[i + 2] := freq[i + 2];
+
       buffer := 'skimmer/qsy ' + FloatToStr(freq[i] / 1000) + #10;
       status := s.sock[i].Write(buffer[1], Length(buffer));
       if status <> Length(buffer) then
@@ -180,7 +192,14 @@ begin
         Continue;
       end;
 
-      Sleep(50);
+      s.freq[i] := freq[i];
+
+      status := s.sock[i].Read(drain, SizeOf(drain));
+      if status < 0 then
+      begin
+        FreeAndNil(s.sock[i]);
+        Continue;
+      end;
     end;
   until False;
 end.
