@@ -120,7 +120,7 @@ begin
   if s.smem.ctrl <> nil then s.smem.ctrl^.freq[i] := freq;
 end;
 
-procedure SetCtrlBits(bits: uint8); stdcall;
+procedure SetCtrlBits(bits: UInt8); stdcall;
 begin
 
 end;
