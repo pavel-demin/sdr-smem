@@ -24,7 +24,7 @@ type
   protected
     procedure Execute; override;
   private
-    procedure Update(limit: Int32);
+    procedure Update(rate: Int32);
   end;
 
   TState = class
@@ -37,7 +37,8 @@ type
     addr: TEdit;
     corr: TFloatSpinEdit;
     inps: array [0..7] of TComboBox;
-    info: array [0..7] of TEdit;
+    info: array [0..8] of TEdit;
+    rate: Int32;
     freq: array [0..7] of Int32;
     procedure ClickConn(Sender: TObject);
     procedure ChangeInps(Sender: TObject);
@@ -46,6 +47,8 @@ type
 
 const
   path: String = '\Software\SDR_SMEM_0';
+
+  rates: array of Int32 = (48, 96, 192, 384);
 
   inputs: array of String = (
     'IN1',
@@ -63,9 +66,10 @@ end;
 
 procedure TDataThread.Execute;
 var
-  limit, offset, size: Int32;
+  rate, size, limit, offset: Int32;
 begin
-  limit := 32768 shl s.smem.ctrl^.rate;
+  rate := s.smem.ctrl^.rate;
+  limit := 32768 shl rate;
   offset := 0;
   repeat
     size := limit - offset;
@@ -74,20 +78,21 @@ begin
     offset := offset + size;
     if offset = limit then
     begin
-      Update(limit);
-      limit := 32768 shl s.smem.ctrl^.rate;
+      Update(rate);
+      rate := s.smem.ctrl^.rate;
+      limit := 32768 shl rate;
       offset := 0;
     end;
   until Terminated;
 end;
 
-procedure TDataThread.Update(limit: Int32);
+procedure TDataThread.Update(rate: Int32);
 var
   ctrl: TCtrlMemory;
   corr: Double;
   i, j, l: Int32;
 begin
-  l := (limit shr 6) - 1;
+  l := (512 shl rate) - 1;
   for i := 0 to 7 do
     for j := 0 to l do
       s.smem.data^[i, j] := b[j * 8 + i];
@@ -96,10 +101,15 @@ begin
   corr := s.corr.Value;
   for i := 0 to 7 do ctrl.freq[i] := Round(ctrl.freq[i] * corr);
   s.sock.Write(ctrl, SizeOf(TCtrlMemory));
+  if s.rate <> s.smem.ctrl^.rate then
+  begin
+    s.rate := s.smem.ctrl^.rate;
+    s.info[0].Text := IntToStr(rates[s.rate]) + ' kSPS';
+  end;
   if not CompareMem(@s.freq, @s.smem.ctrl^.freq, SizeOf(s.freq)) then
   begin
     s.freq := s.smem.ctrl^.freq;
-    for i := 0 to 7 do s.info[i].Text := IntToStr(s.freq[i]);
+    for i := 0 to 7 do s.info[i + 1].Text := IntToStr(s.freq[i]);
   end;
 end;
 
@@ -197,7 +207,7 @@ begin
     BorderStyle := bsSingle;
     Caption := 'SDR SMEM TCP';
     PixelsPerInch := 96;
-    Height := 324;
+    Height := 356;
     Width := 256;
   end;
 
@@ -231,7 +241,7 @@ begin
 
   CreateLabel(s.form, 'Frequency correction', s.corr);
 
-  for i := 0 to 7 do
+  for i := 0 to 8 do
   begin
     s.info[i] := TEdit.create(s.form);
     SetupControl(s.info[i], s.form, 72 + 32 * i);
@@ -241,8 +251,15 @@ begin
       Enabled := False;
       ReadOnly := True;
     end;
+  end;
 
-    CreateLabel(s.form, 'RX' + IntToStr(i), s.info[i]);
+  s.info[0].Text := IntToStr(rates[s.rate]) + ' kSPS';
+
+  CreateLabel(s.form, 'Sample rate', s.info[0]);
+
+  for i := 0 to 7 do
+  begin
+    CreateLabel(s.form, 'RX' + IntToStr(i), s.info[i + 1]);
 
     s.inps[i] := TComboBox.create(s.form);
     with s.inps[i] do
@@ -251,7 +268,7 @@ begin
       OnExit := @s.ExitComboBox;
       Width := 72;
       Left := 48;
-      AnchorVerticalCenterTo(s.info[i]);
+      AnchorVerticalCenterTo(s.info[i + 1]);
       OnChange := @s.ChangeInps;
       Items.SetStrings(inputs);
       ItemIndex := (inps shr i) and 1;
