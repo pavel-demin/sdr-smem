@@ -15,14 +15,14 @@ var
   hndl: THandle;
   open: Boolean;
   device, status: Int32;
-  i, j, l: Int32;
-  chan, rate, size: Int32;
-  hsig: array [0..74] of TWaveHdr;
-  hsil: array [0..7] of TWaveHdr;
-  signal: array [0..74, 0..4095, 0..1] of Single;
-  silence: array [0..7, 0..38399, 0..1] of Single;
+  i, l: Int32;
+  chan, rate: Int32;
+  hsig: array [0..31] of TWaveHdr;
+  signal: array [0..31, 0..4095, 0..1] of Single;
 
 function OpenDevice: Boolean;
+var
+  i, size: Int32;
 begin
   wfx.wFormatTag := 3;
   wfx.nChannels := 2;
@@ -38,33 +38,26 @@ begin
     Result := False;
     Exit;
   end;
+  size := 512 shl rate;
   for i := 0 to High(hsig) do
   begin
     hsig[i].lpData := @signal[i];
-    hsig[i].dwBufferLength := SizeOf(signal[i]);
+    hsig[i].dwBufferLength := size * 8;
     waveOutPrepareHeader(hndl, @hsig[i], SizeOf(TWaveHdr));
-  end;
-  for j := 0 to High(hsil) do
-  begin
-    hsil[j].lpData := @silence[j];
-    hsil[j].dwBufferLength := SizeOf(silence[j]);
-    waveOutPrepareHeader(hndl, @hsil[j], SizeOf(TWaveHdr));
-    waveOutWrite(hndl, @hsil[j], sizeof(TWaveHdr));
+    waveOutWrite(hndl, @hsig[i], sizeof(TWaveHdr));
   end;
   open := True;
   Result := True;
 end;
 
 procedure CloseDevice;
+var
+  i: Int32;
 begin
   if not open then Exit;
   for i := 0 to High(hsig) do
   begin
     waveOutUnprepareHeader(hndl, @hsig[i], SizeOf(TWaveHdr));
-  end;
-  for j := 0 to High(hsil) do
-  begin
-    waveOutUnprepareHeader(hndl, @hsil[j], SizeOf(TWaveHdr));
   end;
   waveOutClose(hndl);
   open := False;
@@ -73,7 +66,7 @@ end;
 begin
   if ParamCount() <> 2 then
   begin
-    WriteLn('Usage: wave_smem_sec.exe device chan');
+    WriteLn('Usage: wave_smem_sec.exe device channel');
     WriteLn('Available devices:');
     l := waveOutGetNumDevs - 1;
     for i := 0 to l do
@@ -105,33 +98,20 @@ begin
   repeat
     if (not open) or (rate <> s.ctrl^.rate) then
     begin
-      rate := s.ctrl^.rate;
       Sleep(1000);
       CloseDevice;
+      rate := s.ctrl^.rate;
       if not OpenDevice then
       begin
         WriteLn('Error: unable to open device');
         Exit;
       end;
       i := 0;
-      j := 0;
     end;
-    if s.Wait then
-    begin
-      size := 512 shl rate;
-      hsig[i].dwBufferLength := size * 8;
-      Move(s.data^[chan], signal[i], size * 8);
-      waveOutWrite(hndl, @hsig[i], sizeof(TWaveHdr));
-      Inc(i);
-      if i > High(hsig) then i := 0;
-    end
-    else
-    begin
-      size := 4800 shl rate;
-      hsil[j].dwBufferLength := size * 8;
-      waveOutWrite(hndl, @hsil[j], sizeof(TWaveHdr));
-      Inc(j);
-      if j > High(hsil) then j := 0;
-    end;
+    if not s.Wait then Continue;
+    Move(s.data^[chan], signal[i], hsig[i].dwBufferLength);
+    waveOutWrite(hndl, @hsig[i], sizeof(TWaveHdr));
+    Inc(i);
+    if i > High(hsig) then i := 0;
   until False;
 end.
