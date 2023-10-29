@@ -14,18 +14,11 @@
       </Flags>
       <SessionStorage Value="None"/>
       <Title Value="intf_smem_pri"/>
-      <Scaled Value="True"/>
       <UseAppBundle Value="False"/>
       <ResourceType Value="res"/>
     </General>
-    <MacroValues Count="1">
-      <Macro1 Name="LCLWidgetType" Value="win32"/>
-    </MacroValues>
     <BuildModes>
       <Item Name="Default" Default="True"/>
-      <SharedMatrixOptions Count="1">
-        <Item1 ID="681213461955" Modes="Default" Type="IDEMacro" MacroName="LCLWidgetType" Value="win32"/>
-      </SharedMatrixOptions>
     </BuildModes>
     <PublishOptions>
       <Version Value="2"/>
@@ -34,11 +27,6 @@
     <RunParams>
       <FormatVersion Value="2"/>
     </RunParams>
-    <RequiredPackages>
-      <Item>
-        <PackageName Value="LCL"/>
-      </Item>
-    </RequiredPackages>
     <Units>
       <Unit>
         <Filename Value="intf_smem_pri.lpr"/>
