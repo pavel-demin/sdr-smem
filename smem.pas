@@ -5,6 +5,9 @@ unit smem;
 
 interface
 
+uses
+  registry;
+
 type
   TCtrlMemory = record
     inps, rate: Int32;
@@ -17,7 +20,9 @@ type
   public
     ctrl: ^TCtrlMemory;
     data: ^TDataMemory;
-    procedure Open(i: Int32);
+    rgst: TRegistry;
+    name: array [0..1023] of Char;
+    function Open: TRegistry;
     procedure Close;
     procedure Notify;
     function Wait: Boolean;
@@ -32,29 +37,46 @@ uses
   sysutils,
   windows;
 
-procedure TSharedMemory.Open(i: Int32);
+function TSharedMemory.Open: TRegistry;
 var
-  name: String;
+  n, s: Int32;
+  p: PChar;
 begin
+  n := 0;
+  s := GetModuleFileName(MainInstance, name, SizeOf(name));
+  if s <> 0 then
+  begin
+    p := StrRScan(name, '.');
+    if p <> nil then p^ := #0;
+    p := StrRScan(name, '_');
+    if p <> nil then n := StrToIntDef(p + 1, 0);
+  end;
   try
-    name := 'SDR_SMEM_' + IntToStr(i) + '_MEM';
+    name := Format('SDR_SMEM_%d_MEM', [n]);
     mapping := CreateFileMapping(INVALID_HANDLE_VALUE, nil, PAGE_READWRITE, 0,
-      SizeOf(TCtrlMemory) + SizeOf(TDataMemory), PChar(name));
+      SizeOf(TCtrlMemory) + SizeOf(TDataMemory), name);
     WinCheck(mapping <> 0);
-    name := 'SDR_SMEM_' + IntToStr(i) + '_EVT';
-    event := CreateEvent(nil, True, False, PChar(name));
+    name := Format('SDR_SMEM_%d_EVT', [n]);
+    event := CreateEvent(nil, True, False, name);
     WinCheck(event <> 0);
     ctrl := MapViewOfFile(mapping, FILE_MAP_WRITE, 0, 0, 0);
     WinCheck(ctrl <> nil);
+    name := Format('\Software\SDR_SMEM_%d', [n]);
+    rgst := TRegistry.Create;
+    rgst.OpenKey(name, True);
+    name := Format('SMEM %d', [n]);
   except
     Close;
+    Result := nil;
     Exit;
   end;
   data := Pointer(ctrl) + SizeOf(TCtrlMemory);
+  Result := rgst;
 end;
 
 procedure TSharedMemory.Close;
 begin
+  rgst.Free;
   if ctrl <> nil then UnmapViewOfFile(ctrl);
   if event <> 0 then CloseHandle(event);
   if mapping <> 0 then CloseHandle(mapping);

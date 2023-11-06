@@ -13,7 +13,7 @@
         <SaveFoldState Value="False"/>
       </Flags>
       <SessionStorage Value="None"/>
-      <Title Value="sdr_smem_tcp"/>
+      <Title Value="tcp_smem"/>
       <Scaled Value="True"/>
       <UseAppBundle Value="False"/>
       <ResourceType Value="res"/>
@@ -41,7 +41,7 @@
     </RequiredPackages>
     <Units>
       <Unit>
-        <Filename Value="sdr_smem_tcp.lpr"/>
+        <Filename Value="tcp_smem.lpr"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
@@ -54,7 +54,7 @@
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="sdr_smem_tcp"/>
+      <Filename Value="tcp_smem"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>

@@ -1,4 +1,4 @@
-library extio_smem_pri;
+library extio_smem;
 
 {$mode objfpc}{$H+}
 
@@ -30,19 +30,17 @@ type
     thrd: TDataThread;
     call: TCallback;
     form: TForm;
+    prim: TCheckBox;
     chan: TComboBox;
     rate: TComboBox;
     freq: Int32;
+    procedure ChangePrim(Sender: TObject);
     procedure ChangeRate(Sender: TObject);
     procedure ExitComboBox(Sender: TObject);
   end;
 
 const
-
-  path: String = '\Software\SDR_SMEM_0';
-
   fmax: Int32 = 490000000;
-
   rates: array of Int32 = (48, 96, 192, 384);
 
 var
@@ -59,31 +57,51 @@ end;
 
 procedure TDataThread.Execute;
 var
-  chan, rate, size, limit, offset: Int32;
+  chan, freq, rate, size, limit, offset: Int32;
 begin
-  chan := s.chan.ItemIndex;
-  s.smem.ctrl^.freq[chan] := s.freq;
-  rate := s.rate.ItemIndex;
-  s.smem.ctrl^.rate := rate;
-  size := 512 shl rate;
-  limit := 7 shr rate;
   offset := 0;
   repeat
+    if offset = 0 then
+    begin
+      chan := s.chan.ItemIndex;
+      if s.prim.Checked then
+      begin
+        s.smem.ctrl^.freq[chan] := s.freq;
+        rate := s.rate.ItemIndex;
+        s.smem.ctrl^.rate := rate;
+      end
+      else
+      begin
+        freq := s.smem.ctrl^.freq[chan];
+        if s.freq <> freq then
+        begin
+          s.freq := freq;
+          if s.call <> nil then s.call(-1, 101, 0.0, nil);
+        end;
+        rate := s.smem.ctrl^.rate;
+        if s.rate.ItemIndex <> rate then
+        begin
+          s.rate.ItemIndex := rate;
+          if s.call <> nil then s.call(-1, 100, 0.0, nil);
+        end;
+      end;
+      size := 512 shl rate;
+      limit := 7 shr rate;
+    end;
     if not s.smem.Wait then Continue;
     Move(s.smem.data^[chan], b[offset * size], size * 8);
     Inc(offset);
     if offset > limit then
     begin
       if s.call <> nil then s.call(4096, 0, 0.0, @b);
-      chan := s.chan.ItemIndex;
-      s.smem.ctrl^.freq[chan] := s.freq;
-      rate := s.rate.ItemIndex;
-      s.smem.ctrl^.rate := rate;
-      size := 512 shl rate;
-      limit := 7 shr rate;
       offset := 0;
     end;
   until Terminated;
+end;
+
+procedure TState.ChangePrim(Sender: TObject);
+begin
+  s.rate.Enabled := s.prim.Checked;
 end;
 
 procedure TState.ChangeRate(Sender: TObject);
@@ -96,12 +114,11 @@ begin
   (Sender as TComboBox).SelLength := 0;
 end;
 
-procedure SetupControl(c: TWinControl; p: TForm; e: TNotifyEvent; y: Int32);
+procedure SetupControl(c: TWinControl; p: TForm; y: Int32);
 begin
   with c do
   begin
     Parent := p;
-    OnExit := e;
     Width := 112;
     Left := 136;
     Top := y;
@@ -126,15 +143,14 @@ procedure Init;
 var
   c, chan, r, rate, rmax: Int32;
 begin
-  chan := 0;
-  rate := 2;
   s := TState.Create;
-  s.rgst := TRegistry.Create;
-  with s.rgst do
-  begin
-    OpenKey(path, True);
-    if ValueExists('Chan') then chan := ReadInteger('Chan') else WriteInteger('Chan', chan);
-    if ValueExists('Rate') then rate := ReadInteger('Rate') else WriteInteger('Rate', rate);
+  s.rgst := s.smem.Open;
+  try
+    chan := s.rgst.ReadInteger('Chan');
+    rate := s.rgst.ReadInteger('Rate');
+  except
+    chan := 0;
+    rate := 2;
   end;
   if chan < 0 then chan := 0;
   if chan > 7 then chan := 7;
@@ -151,15 +167,26 @@ begin
     BorderStyle := bsSingle;
     Caption := 'Settings';
     PixelsPerInch := 96;
-    Height := 68;
+    Height := 100;
     Width := 256;
   end;
 
+  s.prim := TCheckBox.Create(s.form);
+  SetupControl(s.prim, s.form, 8);
+  with s.prim do
+  begin
+    Checked := True;
+    OnChange := @s.ChangePrim;
+  end;
+
+  CreateLabel(s.form, 'Primary', s.prim);
+
   s.chan := TComboBox.Create(s.form);
-  SetupControl(s.chan, s.form, @s.ExitComboBox, 8);
+  SetupControl(s.chan, s.form, 40);
   with s.chan do
   begin
     ReadOnly := True;
+    OnExit := @s.ExitComboBox;
     for c := 0 to 7 do Items.Add(IntToStr(c));
     ItemIndex := chan;
   end;
@@ -167,11 +194,13 @@ begin
   CreateLabel(s.form, 'RX channel', s.chan);
 
   s.rate := TComboBox.Create(s.form);
-  SetupControl(s.rate, s.form, @s.ExitComboBox, 40);
+  SetupControl(s.rate, s.form, 72);
   with s.rate do
   begin
+    Enabled := True;
     ReadOnly := True;
     OnChange := @s.ChangeRate;
+    OnExit := @s.ExitComboBox;
     for r in rates do Items.Add(IntToStr(r) + ' kSPS');
     ItemIndex := rate;
   end;
@@ -181,17 +210,20 @@ end;
 
 procedure Free;
 begin
-  s.rgst.WriteInteger('Chan', s.chan.ItemIndex);
-  s.rgst.WriteInteger('Rate', s.rate.ItemIndex);
+  try
+    s.rgst.WriteInteger('Chan', s.chan.ItemIndex);
+    s.rgst.WriteInteger('Rate', s.rate.ItemIndex);
+  except
+  end;
+  s.smem.Close;
   s.form.Free;
-  s.rgst.Free;
   s.Free;
 end;
 
 function InitHW(name, model: PChar; var format: Int32): Boolean; stdcall;
 begin
   format := 7;
-  StrPCopy(name, 'SMEM Primary');
+  StrPCopy(name, s.smem.name);
   StrPCopy(model, '');
   Result := True;
 end;
@@ -204,7 +236,6 @@ end;
 function StartHW(freq: Int32): Int32; stdcall;
 begin
   SetHWLO(freq);
-  s.smem.Open(0);
   s.thrd := TDataThread.Create;
   Result := 4096;
 end;
@@ -213,7 +244,6 @@ procedure StopHW; stdcall;
 begin
   s.thrd.Terminate;
   Sleep(200);
-  s.smem.Close;
 end;
 
 procedure CloseHW; stdcall;
@@ -228,14 +258,21 @@ end;
 
 function SetHWLO(freq: Int32): Int32; stdcall;
 begin
-  if freq > fmax then
+  if s.prim.Checked then
   begin
-    s.freq := fmax;
-    Result := fmax;
+    if freq > fmax then
+    begin
+      s.freq := fmax;
+      Result := fmax;
+    end
+    else
+    begin
+      s.freq := freq;
+      Result := 0;
+    end;
   end
   else
   begin
-    s.freq := freq;
     Result := 0;
   end;
   if (s.freq <> freq) and (s.call <> nil) then s.call(-1, 101, 0.0, nil);

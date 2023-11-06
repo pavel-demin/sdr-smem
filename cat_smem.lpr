@@ -1,4 +1,4 @@
-program cat_smem_pri;
+program cat_smem;
 
 {$mode objfpc}{$H+}
 
@@ -74,7 +74,7 @@ end;
 begin
   if ParamCount() <> 6 then
   begin
-    WriteLn('Usage: cat_smem_pri.exe port chan chan call port port');
+    WriteLn('Usage: cat_smem.exe port chan chan call port port');
     Exit;
   end;
 
@@ -117,7 +117,7 @@ begin
   ct.ReadTotalTimeoutConstant := 100;
   SetCommTimeouts(s.hndl, ct);
 
-  s.smem.Open(0);
+  s.smem.Open;
 
   repeat
     Sleep(100);

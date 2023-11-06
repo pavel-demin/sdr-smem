@@ -1,4 +1,4 @@
-program sdr_smem_file;
+program file_smem;
 
 {$mode objfpc}{$H+}
 
@@ -18,7 +18,7 @@ var
 begin
   if ParamCount() <> 3 then
   begin
-    WriteLn('Usage: sdr_smem_file.exe file device channel');
+    WriteLn('Usage: file_smem.exe file device channel');
     w.Help;
     Exit;
   end;
@@ -44,7 +44,7 @@ begin
     Exit;
   end;
 
-  s.Open(0);
+  s.Open;
 
   rate := -1;
 

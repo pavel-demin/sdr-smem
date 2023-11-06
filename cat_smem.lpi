@@ -13,7 +13,7 @@
         <SaveFoldState Value="False"/>
       </Flags>
       <SessionStorage Value="None"/>
-      <Title Value="sdr_smem_file"/>
+      <Title Value="cat_smem"/>
       <UseAppBundle Value="False"/>
       <ResourceType Value="res"/>
     </General>
@@ -29,15 +29,11 @@
     </RunParams>
     <Units>
       <Unit>
-        <Filename Value="sdr_smem_file.lpr"/>
+        <Filename Value="cat_smem.lpr"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
         <Filename Value="smem.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit>
-      <Unit>
-        <Filename Value="wave.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
     </Units>
@@ -46,7 +42,7 @@
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="sdr_smem_file"/>
+      <Filename Value="cat_smem"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>

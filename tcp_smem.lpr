@@ -1,4 +1,4 @@
-program sdr_smem_tcp;
+program tcp_smem;
 
 {$mode objfpc}{$H+}
 
@@ -46,10 +46,7 @@ type
   end;
 
 const
-  path: String = '\Software\SDR_SMEM_0';
-
   rates: array of Int32 = (48, 96, 192, 384);
-
   inputs: array of String = (
     'IN1',
     'IN2'
@@ -183,17 +180,16 @@ var
   inps: Int32;
   i: Int32;
 begin
-  addr := '192.168.1.100';
-  corr := 1.0;
-  inps := 0;
   s := TState.Create;
-  s.rgst := TRegistry.Create;
-  with s.rgst do
-  begin
-    OpenKey(path, True);
-    if ValueExists('Addr') then addr := ReadString('Addr') else WriteString('Addr', addr);
-    if ValueExists('Corr') then corr := ReadFloat('Corr') else WriteFloat('Corr', corr);
-    if ValueExists('Inps') then inps := ReadInteger('Inps') else WriteInteger('Inps', inps);
+  s.rgst := s.smem.Open;
+  try
+    addr := s.rgst.ReadString('Addr');
+    corr := s.rgst.ReadFloat('Corr');
+    inps := s.rgst.ReadInteger('Inps');
+  except
+    addr := '192.168.1.100';
+    corr := 1.0;
+    inps := 0;
   end;
   if corr < 0.9999 then corr := 0.9999;
   if corr > 1.0001 then corr := 1.0001;
@@ -205,7 +201,7 @@ begin
   with s.form do
   begin
     BorderStyle := bsSingle;
-    Caption := 'SDR SMEM TCP';
+    Caption := s.smem.name;
     PixelsPerInch := 96;
     Height := 356;
     Width := 256;
@@ -275,19 +271,20 @@ begin
     end;
   end;
 
-  s.smem.Open(0);
   UpdateInps;
 end;
 
 procedure Free;
 begin
-  s.rgst.WriteString('Addr', s.addr.Text);
-  s.rgst.WriteFloat('Corr', s.corr.Value);
-  s.rgst.WriteInteger('Inps', s.smem.ctrl^.inps);
   s.thrd.Free;
   s.sock.Free;
+  try
+    s.rgst.WriteString('Addr', s.addr.Text);
+    s.rgst.WriteFloat('Corr', s.corr.Value);
+    s.rgst.WriteInteger('Inps', s.smem.ctrl^.inps);
+  except
+  end;
   s.smem.Close;
-  s.rgst.Free;
   s.Free;
 end;
 

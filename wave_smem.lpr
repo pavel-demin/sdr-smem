@@ -1,4 +1,4 @@
-program wave_smem_sec;
+program wave_smem;
 
 {$mode objfpc}{$H+}
 
@@ -15,7 +15,7 @@ var
 begin
   if ParamCount() <> 2 then
   begin
-    WriteLn('Usage: wave_smem_sec.exe device channel');
+    WriteLn('Usage: wave_smem.exe device channel');
     w.Help;
     Exit;
   end;
@@ -34,7 +34,7 @@ begin
     Exit;
   end;
 
-  s.Open(0);
+  s.Open;
 
   rate := -1;
 

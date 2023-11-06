@@ -13,7 +13,7 @@
         <SaveFoldState Value="False"/>
       </Flags>
       <SessionStorage Value="None"/>
-      <Title Value="wave_smem_sec"/>
+      <Title Value="wave_smem"/>
       <UseAppBundle Value="False"/>
       <ResourceType Value="res"/>
     </General>
@@ -29,7 +29,7 @@
     </RunParams>
     <Units>
       <Unit>
-        <Filename Value="wave_smem_sec.lpr"/>
+        <Filename Value="wave_smem.lpr"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
@@ -46,7 +46,7 @@
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="wave_smem_sec"/>
+      <Filename Value="wave_smem"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>

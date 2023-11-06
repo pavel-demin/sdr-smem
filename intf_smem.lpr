@@ -1,4 +1,4 @@
-library intf_smem_pri;
+library intf_smem;
 
 {$mode objfpc}{$H+}
 
@@ -78,11 +78,21 @@ begin
   until Terminated;
 end;
 
+procedure Init;
+begin
+  s.smem.Open;
+end;
+
+procedure Free;
+begin
+  s.smem.Close;
+end;
+
 procedure GetSdrInfo(info: PInfo); stdcall;
 begin
   with info^ do
   begin
-    name := PChar('SMEM Primary');
+    name := s.smem.name;
     size := 8;
     rate[0] := 48e3;
     rate[1] := 96e3;
@@ -100,7 +110,6 @@ begin
   for i := 0 to 7 do p[i] := @data[i];
   with s.smem do
   begin
-    Open(0);
     ctrl^.rate := s.rate;
     ctrl^.freq := s.freq;
   end;
@@ -111,7 +120,6 @@ procedure StopRx(); stdcall;
 begin
   s.thrd.Terminate;
   Sleep(200);
-  s.smem.Close;
 end;
 
 procedure SetRxFrequency(freq, i: Int32); stdcall;
@@ -139,5 +147,6 @@ exports
   ReadPort;
 
 begin
-
+  Init;
+  ExitProc := @Free;
 end.
