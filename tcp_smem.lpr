@@ -290,6 +290,7 @@ end;
 
 begin
   Init;
+  Connect;
   Application.Run;
   Free;
 end.
