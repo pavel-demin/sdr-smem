@@ -121,13 +121,12 @@ end;
 
 procedure Connect;
 begin
-  s.thrd.Free;
+  FreeAndNil(s.thrd);
   try
-    s.sock.Free;
+    FreeAndNil(s.sock);
     s.sock := TInetSocket.Create(s.addr.Text, 1001, 1000);
   except
-    s.thrd.Free;
-    s.sock.Free;
+    FreeAndNil(s.sock);
     Exit;
   end;
   s.thrd := TDataThread.Create;
